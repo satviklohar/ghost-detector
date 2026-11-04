@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#030409">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Ghost Detector</title>
+<style>
+:root{--bg:#030409;--card:#0a0e17cc;--line:#1a2436;--txt:#d7e3f4;--dim:#6b7b95;--g:#38ffa6;--y:#ffd24a;--r:#ff3d5a;--p:#9b7bff;--glow:var(--g)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,system-ui,Segoe UI,Roboto,sans-serif}
+body{padding:env(safe-area-inset-top) 14px calc(env(safe-area-inset-bottom) + 24px);max-width:520px;margin:auto;overflow-x:hidden;transition:filter .4s}
+#fog{position:fixed;inset:0;width:100%;height:100%;z-index:-2;opacity:.9}
+#vig{position:fixed;inset:0;pointer-events:none;z-index:30;background:radial-gradient(ellipse at center,transparent 45%,#000 120%);opacity:.5;transition:opacity .6s}
+#scanlines{position:fixed;inset:0;pointer-events:none;z-index:31;background:repeating-linear-gradient(0deg,#0000 0 2px,#0003 3px);mix-blend-mode:multiply}
+h1{font-size:20px;letter-spacing:.32em;text-transform:uppercase;text-align:center;margin:20px 0 2px;color:var(--glow);text-shadow:0 0 14px var(--glow),0 0 40px var(--glow);animation:flick 5s infinite;position:relative}
+h1.glitch::before,h1.glitch::after{content:attr(data-t);position:absolute;left:0;right:0;top:0}
+h1.glitch::before{color:#f0f;transform:translate(-3px,0);clip-path:inset(0 0 55% 0);animation:gl .3s infinite}
+h1.glitch::after{color:#0ff;transform:translate(3px,0);clip-path:inset(50% 0 0 0);animation:gl .25s infinite reverse}
+@keyframes gl{0%{transform:translate(-3px,1px)}50%{transform:translate(4px,-2px)}100%{transform:translate(-2px,2px)}}
+@keyframes flick{0%,18%,22%,62%,64%,100%{opacity:1}20%,63%{opacity:.35}}
+.sub{text-align:center;color:var(--dim);font-size:11px;letter-spacing:.2em;margin-bottom:14px;text-transform:uppercase}
+.card{background:var(--card);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:12px;position:relative;overflow:hidden;animation:rise .7s both}
+.card:nth-of-type(2){animation-delay:.1s}.card:nth-of-type(3){animation-delay:.2s}.card:nth-of-type(4){animation-delay:.3s}
+@keyframes rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}
+.card h2{margin:0 0 10px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);font-weight:600;display:flex;justify-content:space-between}
+.tag{font-size:9px;padding:2px 6px;border-radius:6px;border:1px solid var(--line);letter-spacing:.1em}
+.tag.live{color:var(--g);border-color:var(--g);animation:blink 1.4s infinite}
+.tag.sim{color:var(--y);border-color:#5a4a1a}
+@keyframes blink{50%{opacity:.35}}
+#status{text-align:center;font-size:23px;font-weight:800;letter-spacing:.1em;margin:4px 0 8px;text-shadow:0 0 16px currentColor;transition:color .4s}
+#radarWrap{position:relative;width:100%;aspect-ratio:1;max-width:340px;margin:auto}
+canvas.fill{width:100%;height:100%;display:block}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.m{background:#070a11cc;border:1px solid var(--line);border-radius:12px;padding:10px;position:relative}
+.m b{display:block;font-size:22px;font-variant-numeric:tabular-nums;text-shadow:0 0 8px #fff3}
+.m span{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.12em}
+.m small{display:block;font-size:9px;color:var(--dim);margin-top:2px}
+.bar{height:6px;background:#121927;border-radius:4px;margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--g);transition:width .5s,background .5s;box-shadow:0 0 8px currentColor}
+.feel{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:6px 10px;border-radius:20px;border:1px solid var(--line);font-size:12px;color:var(--dim);transition:.5s}
+.chip.on{color:#000;background:var(--p);border-color:var(--p);box-shadow:0 0 14px var(--p);animation:pulse 1.2s infinite}
+@keyframes pulse{50%{transform:scale(1.07)}}
+#log{max-height:180px;overflow:auto;font:12px ui-monospace,Menlo,monospace;color:var(--dim)}
+#log div{padding:4px 0;border-bottom:1px solid #111826;animation:slide .4s}
+#log em{color:var(--y);font-style:normal}
+@keyframes slide{from{opacity:0;transform:translateX(-14px)}}
+button{font:inherit;color:inherit}
+#scan{width:100%;padding:17px;border:0;border-radius:16px;font-size:16px;font-weight:800;letter-spacing:.2em;background:var(--g);color:#00150b;box-shadow:0 0 26px #38ffa688;animation:breathe 2.4s infinite}
+#scan.off{background:#18202f;color:var(--txt);box-shadow:none;animation:none}
+@keyframes breathe{50%{box-shadow:0 0 44px #38ffa6cc}}
+#camBox{position:relative;border-radius:12px;overflow:hidden;background:#000;aspect-ratio:4/3;display:none}
+#camBox.on{display:block}
+#cam{width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.5) brightness(1.1) sepia(1) hue-rotate(70deg) saturate(3)}
+#noise{position:absolute;inset:0;width:100%;height:100%;mix-blend-mode:screen;opacity:.45}
+#sil{position:absolute;left:50%;bottom:0;width:38%;height:85%;transform:translateX(-50%);opacity:0;transition:opacity 1.2s;
+  background:radial-gradient(ellipse 40% 18% at 50% 14%,#fff 0 60%,#0000 62%),linear-gradient(#fff0,#ffffffaa 25%,#fff0);filter:blur(7px);mix-blend-mode:screen;animation:sway 3s ease-in-out infinite}
+@keyframes sway{50%{transform:translateX(-42%) skewX(4deg)}}
+.hud{position:absolute;left:8px;top:6px;font:10px ui-monospace,monospace;color:#7fffc0;text-shadow:0 0 4px #000}
+.hud.r{left:auto;right:8px;color:#f55;animation:blink 1s infinite}
+.smallbtn{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:#121a29;font-size:13px;letter-spacing:.08em}
+#sec{position:fixed;right:0;bottom:0;width:56px;height:56px;opacity:0;z-index:40}
+#secL{position:fixed;left:0;bottom:0;width:64px;height:64px;opacity:0;z-index:40}
+#horror{position:fixed;inset:0;width:100%;height:100%;z-index:60;display:none;background:#000}
+#panel{position:fixed;inset:0;background:#000d;backdrop-filter:blur(6px);display:none;align-items:flex-end;z-index:50}
+#panel.open{display:flex}
+#panel .sheet{width:100%;max-width:520px;margin:auto;background:#10141f;border-top:2px solid var(--p);border-radius:22px 22px 0 0;padding:18px 16px calc(env(safe-area-inset-bottom) + 18px);max-height:88vh;overflow:auto;animation:up .35s}
+@keyframes up{from{transform:translateY(100%)}}
+#panel h3{margin:0 0 12px;color:var(--p);letter-spacing:.2em;font-size:13px;text-transform:uppercase}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:12px 0;font-size:14px}
+.row input[type=range]{flex:1}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.btns button,select{padding:13px;border-radius:12px;border:1px solid var(--line);background:#1a2132;color:var(--txt);font-size:14px}
+.btns .danger{background:#3a1019;border-color:var(--r)}
+#flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:45}
+#ghost{position:fixed;left:50%;top:50%;font-size:140px;transform:translate(-50%,-50%);opacity:0;pointer-events:none;z-index:46;filter:drop-shadow(0 0 40px #fff)}
+.shake{animation:sh .35s 4}
+@keyframes sh{0%,100%{transform:translate(0)}25%{transform:translate(-8px,3px)}75%{transform:translate(8px,-3px)}}
+body.danger{filter:hue-rotate(-60deg) saturate(1.4)}
+</style>
+</head>
+<body>
+<canvas id="fog"></canvas><div id="vig"></div><div id="scanlines"></div>
+<h1 id="title" data-t="Ghost Detector">Ghost Detector</h1>
+<div class="sub" id="hint">Paranormal Activity Scanner · <span id="clock"></span></div>
+
+<div class="card">
+  <div id="status">IDLE</div>
+  <div id="radarWrap"><canvas class="fill" id="radar" width="680" height="680"></canvas></div>
+</div>
+
+<button id="scan" class="off">START SCAN</button>
+<div style="height:12px"></div>
+
+<div class="card">
+  <h2>Night Vision Camera <span class="tag" id="camTag">OFF</span></h2>
+  <div id="camBox"><video id="cam" playsinline muted autoplay></video><canvas id="noise"></canvas><div id="sil"></div>
+    <div class="hud" id="camHud">NV-MODE</div><div class="hud r">● REC</div></div>
+  <button class="smallbtn" id="camBtn">ENABLE CAMERA</button>
+</div>
+
+<div class="card">
+  <h2>Live Waveform <span class="tag" id="micTag">SIM</span></h2>
+  <canvas class="fill" id="wave" width="640" height="150" style="height:110px"></canvas>
+  <canvas class="fill" id="spec" width="640" height="90" style="height:60px;margin-top:6px"></canvas>
+</div>
+
+<div class="card">
+  <h2>EMF Meter <span class="tag" id="emfTag">SIM</span></h2>
+  <canvas class="fill" id="gauge" width="640" height="320" style="height:auto;aspect-ratio:2/1"></canvas>
+</div>
+
+<div class="card">
+  <h2>Environment Sensors</h2>
+  <div class="grid">
+    <div class="m"><span>EMF (µT)</span><b id="emf">0.0</b><div class="bar"><i id="emfB"></i></div></div>
+    <div class="m"><span>Temp (°C)</span><b id="tmp">21.0</b><div class="bar"><i id="tmpB"></i></div></div>
+    <div class="m"><span>Sound (dB)</span><b id="snd">30</b><small id="sndS">simulated</small><div class="bar"><i id="sndB"></i></div></div>
+    <div class="m"><span>Motion (m/s²)</span><b id="mot">0.0</b><small id="motS">simulated</small><div class="bar"><i id="motB"></i></div></div>
+    <div class="m"><span>Humidity %</span><b id="hum">45</b><div class="bar"><i id="humB"></i></div></div>
+    <div class="m"><span>Pressure hPa</span><b id="prs">1013</b><div class="bar"><i id="prsB"></i></div></div>
+    <div class="m"><span>Ion Level</span><b id="ion">0</b><div class="bar"><i id="ionB"></i></div></div>
+    <div class="m"><span>Light (lux)</span><b id="lux">--</b><small id="luxS">simulated</small><div class="bar"><i id="luxB"></i></div></div>
+    <div class="m"><span>Compass</span><b id="hdg">--°</b><small id="hdgS">simulated</small><div class="bar"><i id="hdgB"></i></div></div>
+    <div class="m"><span>Battery</span><b id="bat">--</b><small id="batS"></small><div class="bar"><i id="batB"></i></div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Feeling Data</h2>
+  <div class="grid">
+    <div class="m"><span>Spirit Presence</span><b id="pres">0%</b><div class="bar"><i id="presB"></i></div></div>
+    <div class="m"><span>Fear Level</span><b id="fear">0%</b><div class="bar"><i id="fearB"></i></div></div>
+    <div class="m"><span>Heartbeat BPM</span><b id="bpm">72</b><div class="bar"><i id="bpmB"></i></div></div>
+    <div class="m"><span>Distance (m)</span><b id="dist">--</b><div class="bar"><i id="distB"></i></div></div>
+    <div class="m"><span>Anxiety</span><b id="anx">0%</b><div class="bar"><i id="anxB"></i></div></div>
+    <div class="m"><span>Hostility</span><b id="hos">0%</b><div class="bar"><i id="hosB"></i></div></div>
+  </div>
+  <div class="feel" style="margin-top:12px" id="feel"></div>
+  <div style="margin-top:12px;font-size:13px;color:var(--dim)">Entity: <b id="ent" style="color:var(--txt)">None</b> · Mood: <b id="mood" style="color:var(--txt)">Calm</b></div>
+  <div style="margin-top:6px;font-size:13px;color:var(--dim)">Moon: <b id="moon" style="color:var(--txt)"></b> · Haunt index: <b id="haunt" style="color:var(--txt)"></b></div>
+</div>
+
+<div class="card">
+  <h2>Presence History</h2>
+  <canvas class="fill" id="hist" width="640" height="160" style="height:90px"></canvas>
+</div>
+
+<div class="card"><h2>Event Log</h2><div id="log"></div></div>
+
+<div id="sec"></div><div id="secL"></div><canvas id="horror"></canvas><div id="flash"></div><div id="ghost">👻</div>
+
+<div id="panel"><div class="sheet">
+  <h3>⚙ Secret Control</h3>
+  <div class="row"><span>Mode</span><select id="mode"><option value="auto">Auto (random)</option><option value="manual">Manual (I control)</option></select></div>
+  <div class="row"><span>Presence</span><input type="range" id="lvl" min="0" max="100" value="0"><b id="lvlV">0</b></div>
+  <div class="row"><span>Entity</span><select id="type"><option>Wandering Spirit</option><option>Poltergeist</option><option>Shadow Figure</option><option>Lost Child</option><option>Banshee</option><option>Demon</option></select></div>
+  <div class="row"><span>Vibrate</span><input type="checkbox" id="vib" checked></div>
+  <div class="row"><span>Sound</span><input type="checkbox" id="snd2" checked></div>
+  <div class="btns">
+    <button id="bGhost">👻 Show Ghost</button>
+    <button id="bScare" class="danger">💀 Jump Scare</button>
+    <button id="bDelay" class="danger">⏱ Delayed Scare</button>
+    <button id="bCold">🥶 Cold Spot</button>
+    <button id="bWhisper">🗣 Whisper</button>
+    <button id="bBlack">🔦 Blackout</button>
+    <button id="bClear">😌 Clear Room</button>
+    <button id="bClose" style="grid-column:span 2">Close (hidden)</button>
+  </div>
+  <div style="font-size:11px;color:var(--dim);margin-top:10px">Instant scare: tap invisible bottom-LEFT corner once. Delayed scare (5–12s): tap it twice. Open this panel: tap bottom-right corner 5× fast, tap title 7×, or press G.</div>
+</div></div>
+
+<script>
+const $=id=>document.getElementById(id), rnd=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const S={scan:false,mode:'auto',lvl:0,target:0,type:'Wandering Spirit',vib:true,snd:true,cold:0,blips:[],ang:0,hist:[],dark:0,
+  mic:null,micLv:0,motion:null,hdg:null,lux:null,mag:null,micData:null};
+const FEELS=['Cold chills','Goosebumps','Being watched','Heavy air','Dizziness','Whispers','Dread','Static hair','Metallic taste','Ringing ears','Nausea','Sudden warmth'];
+const MOODS=[[0,'Calm'],[20,'Uneasy'],[40,'Nervous'],[60,'Terrified'],[80,'Panic']];
+const chips=FEELS.map(f=>{const d=document.createElement('span');d.className='chip';d.textContent=f;$('feel').appendChild(d);return d});
+
+function log(m){const d=document.createElement('div');d.innerHTML=`<em>${new Date().toLocaleTimeString()}</em> ${m}`;$('log').prepend(d);while($('log').children.length>50)$('log').lastChild.remove()}
+function bar(id,v,max,col){const b=$(id+'B');b.style.width=clamp(v/max*100,0,100)+'%';b.style.background=col||(v/max>.66?'var(--r)':v/max>.33?'var(--y)':'var(--g)')}
+function set(id,t){$(id).textContent=t}
+
+/* ---------- audio / haptics ---------- */
+let AC;function ac(){return AC=AC||new (window.AudioContext||window.webkitAudioContext)()}
+function beep(f,d,type='sine',v=.15){if(!S.snd)return;try{const a=ac(),o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.value=f;g.gain.value=v;g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d);o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d)}catch(e){}}
+function noiseBurst(d=1,v=.2){if(!S.snd)return;try{const a=ac(),b=a.createBuffer(1,a.sampleRate*d,a.sampleRate),x=b.getChannelData(0);for(let i=0;i<x.length;i++)x[i]=(Math.random()*2-1)*(1-i/x.length);const s=a.createBufferSource(),g=a.createGain(),f=a.createBiquadFilter();f.type='bandpass';f.frequency.value=1800;g.gain.value=v;s.buffer=b;s.connect(f);f.connect(g);g.connect(a.destination);s.start()}catch(e){}}
+function buzz(p){if(S.vib&&navigator.vibrate)navigator.vibrate(p)}
+// ambient drone
+let drone;function startDrone(){if(drone||!S.snd)return;try{const a=ac(),o=a.createOscillator(),o2=a.createOscillator(),g=a.createGain();o.frequency.value=48;o2.frequency.value=48.7;o.type=o2.type='sine';g.gain.value=0;o.connect(g);o2.connect(g);g.connect(a.destination);o.start();o2.start();drone={g,o}}catch(e){}}
+function stopDrone(){if(drone){drone.g.gain.value=0}}
+
+/* ---------- REAL sensors ---------- */
+async function enableSensors(){
+  // microphone -> real dB + waveform
+  try{
+    const st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false}});
+    const a=ac(),src=a.createMediaStreamSource(st),an=a.createAnalyser();an.fftSize=1024;src.connect(an);S.mic=an;S.micData=new Uint8Array(an.fftSize);S.freq=new Uint8Array(an.frequencyBinCount);
+    $('micTag').textContent='LIVE';$('micTag').className='tag live';set('sndS','live microphone');log('Microphone online');
+  }catch(e){log('Mic unavailable – simulating')}
+  // motion
+  try{
+    if(typeof DeviceMotionEvent!=='undefined'&&DeviceMotionEvent.requestPermission){const r=await DeviceMotionEvent.requestPermission();if(r!=='granted')throw 0}
+    if(typeof DeviceOrientationEvent!=='undefined'&&DeviceOrientationEvent.requestPermission){await DeviceOrientationEvent.requestPermission().catch(()=>{})}
+    addEventListener('devicemotion',e=>{const a=e.accelerationIncludingGravity||e.acceleration;if(a&&a.x!=null){S.motion=Math.abs(Math.hypot(a.x,a.y,a.z)-(e.accelerationIncludingGravity?9.81:0));set('motS','live accelerometer')}});
+    addEventListener('deviceorientationabsolute',o=>{if(o.alpha!=null){S.hdg=(360-o.alpha)%360;set('hdgS','live compass')}});
+    addEventListener('deviceorientation',o=>{const h=o.webkitCompassHeading;if(h!=null){S.hdg=h;set('hdgS','live compass')}else if(S.hdg==null&&o.alpha!=null){S.hdg=(360-o.alpha)%360;set('hdgS','live gyro')}});
+  }catch(e){}
+  // magnetometer (Chrome Android) -> real EMF
+  try{if('Magnetometer' in window){const m=new Magnetometer({frequency:10});m.addEventListener('reading',()=>{S.mag=Math.hypot(m.x,m.y,m.z);$('emfTag').textContent='LIVE';$('emfTag').className='tag live'});m.start()}}catch(e){}
+  // ambient light
+  try{if('AmbientLightSensor' in window){const l=new AmbientLightSensor();l.addEventListener('reading',()=>{S.lux=l.illuminance;set('luxS','live light sensor')});l.start()}}catch(e){}
+}
+// battery
+if(navigator.getBattery)navigator.getBattery().then(b=>{const u=()=>{set('bat',Math.round(b.level*100)+'%');set('batS',b.charging?'charging':'discharging');bar('bat',b.level*100,100,'var(--g)')};u();b.onlevelchange=b.onchargingchange=u});
+else set('batS','n/a');
+
+/* ---------- camera night vision ---------- */
+$('camBtn').onclick=async()=>{
+  if($('camBox').classList.contains('on')){const s=$('cam').srcObject;s&&s.getTracks().forEach(t=>t.stop());$('camBox').classList.remove('on');$('camBtn').textContent='ENABLE CAMERA';$('camTag').textContent='OFF';$('camTag').className='tag';return}
+  try{const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});$('cam').srcObject=st;$('camBox').classList.add('on');$('camBtn').textContent='DISABLE CAMERA';$('camTag').textContent='LIVE';$('camTag').className='tag live';log('Night-vision camera on')}
+  catch(e){log('Camera blocked or unavailable')}
+};
+const nz=$('noise'),nx=nz.getContext('2d');nz.width=160;nz.height=120;
+function drawNoise(){
+  if($('camBox').classList.contains('on')){const im=nx.createImageData(160,120),d=im.data,k=40+S.lvl*1.5;for(let i=0;i<d.length;i+=4){const v=Math.random()*k;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255}nx.putImageData(im,0,0);
+    $('sil').style.opacity=S.scan&&S.lvl>55?clamp((S.lvl-55)/45,0,.75)*(Math.random()<.04?0:1):0;
+    set('camHud',`NV-MODE · EMF ${$('emf').textContent} · ${new Date().toLocaleTimeString()}`)}
+}
+
+/* ---------- simulation + data ---------- */
+let t=0,bpmPhase=0,lastMic=30;
+function tick(){
+  t++;
+  if(!S.scan)S.target=0;
+  else if(S.mode==='auto'){ if(Math.random()<.04)S.target=Math.random()<.35?rnd(55,95):rnd(0,35) } else S.target=S.lvl_||0;
+  S.lvl+=(S.target-S.lvl)*.15;const p=S.lvl,n=()=>rnd(-1,1);
+
+  // real mic if available, else sim
+  let snd=S.scan?30+p*.35+Math.abs(n())*8:30,rawMic=0;
+  if(S.mic&&S.scan){S.mic.getByteTimeDomainData(S.micData);let s=0;for(const v of S.micData)s+=((v-128)/128)**2;rawMic=Math.sqrt(s/S.micData.length);snd=clamp(20+20*Math.log10(rawMic+1e-4)+60,25,110)+ p*.15;
+    if(rawMic>.12){S.target=Math.max(S.target,Math.min(100,S.target+rawMic*200));if(S.mode==='auto'&&Math.random()<.2)log('Loud noise detected (live)')}}
+  const emf=S.mag!=null&&S.scan?Math.abs(S.mag-45)*.5+p*.04:(S.scan?Math.max(.1,.3+p*.09+n()*(1+p/20)):0);
+  const mot=S.motion!=null?S.motion:(S.scan?Math.abs(n())*.3+p*.02:0);
+  const tmp=21-p*.12-S.cold*8+n()*.3,hum=45+p*.2+n(),prs=1013-p*.08+n()*.3;
+  const ion=S.scan?Math.round(p*8+Math.abs(n())*40):0;
+  const lux=S.lux!=null?S.lux:Math.max(0,80-p*.7+n()*5);
+  const hdg=S.hdg!=null?S.hdg:(S.hdgSim=((S.hdgSim||180)+n()*(2+p/10)+360)%360);
+  const fear=Math.min(100,p*.9+S.cold*30+(S.scan?Math.abs(n())*5:0));
+  const anx=clamp(fear*.8+n()*5,0,100),hos=clamp(S.type==='Demon'?p*1.1:S.type==='Poltergeist'?p*.9:p*.4,0,100);
+  const bpm=Math.round(72+fear*.65+n()*2),dist=S.scan&&p>8?Math.max(.3,12-p*.11+n()*.4).toFixed(1):'--';
+  S.emf=emf;S.snd=snd;S.mot=mot;
+  set('emf',emf.toFixed(1));bar('emf',emf,10);
+  set('tmp',tmp.toFixed(1));bar('tmp',21-tmp,12);
+  set('snd',Math.round(snd));bar('snd',snd-30,50);
+  set('mot',mot.toFixed(2));bar('mot',mot,5);
+  set('hum',Math.round(hum));bar('hum',hum-40,25);
+  set('prs',Math.round(prs));bar('prs',1013-prs,10);
+  set('ion',ion);bar('ion',ion,900);
+  set('lux',Math.round(lux));bar('lux',100-Math.min(lux,100),100,'var(--p)');
+  set('hdg',Math.round(hdg)+'°');bar('hdg',hdg,360,'var(--g)');
+  set('pres',Math.round(p)+'%');bar('pres',p,100);
+  set('fear',Math.round(fear)+'%');bar('fear',fear,100);
+  set('anx',Math.round(anx)+'%');bar('anx',anx,100);
+  set('hos',Math.round(hos)+'%');bar('hos',hos,100);
+  set('bpm',bpm);bar('bpm',bpm-60,100);S.bpm=bpm;
+  set('dist',dist);bar('dist',dist==='--'?0:12-dist,12);
+  const mood=[...MOODS].reverse().find(m=>fear>=m[0])[1];set('mood',mood);
+  chips.forEach((c,i)=>c.classList.toggle('on',S.scan&&fear>(i+1)*7));
+  set('ent',p>25?S.type:'None');
+  const st=$('status'),col=!S.scan?'var(--dim)':p>70?'var(--r)':p>40?'var(--y)':p>15?'var(--p)':'var(--g)';
+  st.textContent=!S.scan?'IDLE':p>70?'ENTITY CLOSE!':p>40?'PRESENCE DETECTED':p>15?'ANOMALY':'SCANNING…';st.style.color=col;
+  document.documentElement.style.setProperty('--glow',col==='var(--dim)'?'var(--g)':col);
+  $('title').classList.toggle('glitch',S.scan&&p>60);document.body.classList.toggle('danger',S.scan&&p>85);
+  $('vig').style.opacity=.45+p/200+S.dark*.5;
+  if(S.scan&&p>35&&Math.random()<.3){beep(200+p*8,.12,'square',.05);buzz(20)}
+  if(S.scan&&p>25&&Math.random()<.07){log(['EMF spike','Cold draft','Whisper on mic','Motion without source','Ion burst','Shadow movement','Door-knock pattern'][Math.floor(Math.random()*7)]+` (${Math.round(p)}%)`);S.blips.push({a:rnd(0,6.28),r:rnd(.2,.9),life:1});noiseBurst(.4,.05)}
+  if(drone)drone.g.gain.value=S.scan&&S.snd?.02+p/100*.12:0;
+  S.cold=Math.max(0,S.cold-.01);S.dark=Math.max(0,S.dark-.02);
+  S.hist.push(p);if(S.hist.length>60)S.hist.shift();
+  set('haunt',(clamp(p*.6+fear*.4,0,100)).toFixed(0)+'/100');
+}
+setInterval(tick,500);
+setInterval(()=>set('clock',new Date().toLocaleTimeString()),1000);
+// moon phase
+(function(){const d=new Date(),lp=2551443,nm=new Date(2000,0,6,18,14).getTime(),ph=((d.getTime()-nm)/1000%lp)/lp;set('moon',['🌑 New','🌒 Waxing crescent','🌓 First quarter','🌔 Waxing gibbous','🌕 Full','🌖 Waning gibbous','🌗 Last quarter','🌘 Waning crescent'][Math.round(ph*8)%8])})();
+
+/* ---------- canvases ---------- */
+const radar=$('radar'),rx=radar.getContext('2d');
+function drawRadar(){const W=radar.width,c=W/2;rx.clearRect(0,0,W,W);
+  rx.strokeStyle='#1b2f3f';rx.lineWidth=2;for(let i=1;i<=4;i++){rx.beginPath();rx.arc(c,c,c*i/4-4,0,7);rx.stroke()}
+  rx.beginPath();rx.moveTo(c,4);rx.lineTo(c,W-4);rx.moveTo(4,c);rx.lineTo(W-4,c);rx.stroke();
+  const pr=(t2=>(performance.now()/1500)%1)();rx.strokeStyle=`rgba(56,255,166,${(1-pr)*.4})`;rx.beginPath();rx.arc(c,c,pr*(c-4),0,7);rx.stroke(); // sonar ping
+  if(S.scan){S.ang+=.045;const g=rx.createConicGradient(S.ang-1.3,c,c);g.addColorStop(0,'#38ffa600');g.addColorStop(.2,'#38ffa677');g.addColorStop(.201,'#38ffa600');rx.fillStyle=g;rx.beginPath();rx.arc(c,c,c-4,0,7);rx.fill();
+    S.blips.forEach(b=>{b.life-=.004;rx.fillStyle=`rgba(255,61,90,${Math.max(0,b.life)})`;rx.shadowColor='#ff3d5a';rx.shadowBlur=20;rx.beginPath();rx.arc(c+Math.cos(b.a)*b.r*c,c+Math.sin(b.a)*b.r*c,10+S.lvl/7,0,7);rx.fill()});rx.shadowBlur=0;S.blips=S.blips.filter(b=>b.life>0)}
+}
+const wv=$('wave'),wx=wv.getContext('2d'),sp=$('spec'),sx=sp.getContext('2d');
+function drawWave(){const W=wv.width,H=wv.height;wx.clearRect(0,0,W,H);wx.strokeStyle='#38ffa6';wx.shadowColor='#38ffa6';wx.shadowBlur=8;wx.lineWidth=2;wx.beginPath();
+  const live=S.mic&&S.scan;if(live)S.mic.getByteTimeDomainData(S.micData);
+  for(let x=0;x<W;x+=4){let y;if(live)y=H/2+((S.micData[Math.floor(x/W*S.micData.length)]-128)/128)*H*.9;else{const a=S.scan?3+S.lvl*.5:2;y=H/2+(Math.sin(x*.05+performance.now()/200)*a+Math.sin(x*.21+performance.now()/90)*a*.5+rnd(-1,1)*a*.4)}x?wx.lineTo(x,y):wx.moveTo(x,y)}wx.stroke();wx.shadowBlur=0;
+  const SW=sp.width,SH=sp.height;sx.clearRect(0,0,SW,SH);const N=48;if(live)S.mic.getByteFrequencyData(S.freq);
+  for(let i=0;i<N;i++){const v=live?S.freq[i*2]/255:clamp((S.scan?.1+S.lvl/160:.05)*(.5+Math.random())*(1-i/N*.6),0,1);sx.fillStyle=`hsl(${150-v*150},100%,55%)`;sx.fillRect(i*(SW/N)+1,SH-v*SH,SW/N-3,v*SH)}}
+const gg=$('gauge'),gx=gg.getContext('2d');let needle=0;
+function drawGauge(){const W=gg.width,H=gg.height,cx2=W/2,cy=H-20,R=H-50;gx.clearRect(0,0,W,H);
+  const segs=['#38ffa6','#38ffa6','#9be84a','#ffd24a','#ff9a3d','#ff3d5a'];segs.forEach((c,i)=>{gx.strokeStyle=c;gx.lineWidth=22;gx.beginPath();gx.arc(cx2,cy,R,Math.PI+i*Math.PI/6+.02,Math.PI+(i+1)*Math.PI/6-.02);gx.stroke()});
+  const v=clamp((S.emf||0)/10,0,1)+(S.scan?rnd(-.015,.015):0);needle+=(v-needle)*.12;const a=Math.PI+needle*Math.PI;
+  gx.strokeStyle='#fff';gx.shadowColor='#fff';gx.shadowBlur=14;gx.lineWidth=5;gx.lineCap='round';gx.beginPath();gx.moveTo(cx2,cy);gx.lineTo(cx2+Math.cos(a)*(R-14),cy+Math.sin(a)*(R-14));gx.stroke();gx.shadowBlur=0;
+  gx.fillStyle='#fff';gx.beginPath();gx.arc(cx2,cy,10,0,7);gx.fill();gx.fillStyle='#6b7b95';gx.font='22px sans-serif';gx.textAlign='center';gx.fillText('0',cx2-R,cy+20);gx.fillText('10 µT',cx2+R,cy+20)}
+const hc=$('hist'),hx=hc.getContext('2d');
+function drawHist(){const W=hc.width,H=hc.height;hx.clearRect(0,0,W,H);hx.strokeStyle='#18233a';for(let i=1;i<4;i++){hx.beginPath();hx.moveTo(0,H*i/4);hx.lineTo(W,H*i/4);hx.stroke()}
+  if(S.hist.length<2)return;const g=hx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#ff3d5a88');g.addColorStop(1,'#38ffa611');hx.beginPath();S.hist.forEach((v,i)=>{const x=i/59*W,y=H-v/100*H;i?hx.lineTo(x,y):hx.moveTo(x,y)});hx.strokeStyle='#ff6b8a';hx.lineWidth=3;hx.stroke();hx.lineTo((S.hist.length-1)/59*W,H);hx.lineTo(0,H);hx.fillStyle=g;hx.fill()}
+// fog + floating orbs
+const fg=$('fog'),fx=fg.getContext('2d'),orbs=Array.from({length:14},()=>({x:Math.random(),y:Math.random(),r:rnd(.1,.3),s:rnd(.0002,.0008),a:rnd(0,6.28)}));
+function drawFog(){fg.width=innerWidth/3;fg.height=innerHeight/3;const W=fg.width,H=fg.height;fx.fillStyle='#030409';fx.fillRect(0,0,W,H);
+  const hot=S.scan?S.lvl/100:0;orbs.forEach(o=>{o.a+=o.s*16;o.x+=Math.cos(o.a)*.0006;o.y+=Math.sin(o.a)*.0006;const g=fx.createRadialGradient(o.x*W,o.y*H,0,o.x*W,o.y*H,o.r*W);const c=hot>.5?'255,61,90':hot>.2?'155,123,255':'56,255,166';g.addColorStop(0,`rgba(${c},${.1+hot*.12})`);g.addColorStop(1,`rgba(${c},0)`);fx.fillStyle=g;fx.fillRect(0,0,W,H)})}
+let frame=0;
+(function loop(){frame++;drawRadar();drawWave();drawGauge();drawHist();drawNoise();if(frame%2==0)drawFog();requestAnimationFrame(loop)})();
+
+/* ---------- actions ---------- */
+$('scan').onclick=async()=>{
+  S.scan=!S.scan;$('scan').textContent=S.scan?'STOP SCAN':'START SCAN';$('scan').classList.toggle('off',!S.scan);
+  if(S.scan){log('Scan started – calibrating sensors');await enableSensors();startDrone();beep(600,.15)}else{stopDrone();log('Scan stopped')}
+};
+function ghost(){$('ghost').animate([{opacity:0,transform:'translate(-50%,-50%) scale(.4)'},{opacity:.9,transform:'translate(-50%,-50%) scale(1.8) rotate(-6deg)',offset:.4},{opacity:0,transform:'translate(-50%,-50%) scale(2.8) rotate(6deg)'}],{duration:2000});log('Apparition visible!');beep(110,1,'sawtooth',.2);noiseBurst(1,.15);buzz([100,50,200])}
+function scare(){const f=$('flash');f.animate([{opacity:1},{opacity:0},{opacity:1},{opacity:0},{opacity:.7},{opacity:0}],{duration:900});document.body.classList.add('shake');setTimeout(()=>document.body.classList.remove('shake'),1500);ghost();beep(70,1.4,'sawtooth',.4);noiseBurst(1.5,.4);buzz([300,80,300,80,500]);S.lvl=100;S.lvl_=100;S.target=100;S.mode='manual';$('mode').value='manual';$('lvl').value=100;set('lvlV',100);log('⚠ Entity manifested')}
+function whisper(){try{const u=new SpeechSynthesisUtterance(['get out','behind you','I see you','help me','why are you here'][Math.floor(Math.random()*5)]);u.pitch=.1;u.rate=.6;u.volume=.8;speechSynthesis.speak(u)}catch(e){}log('Whisper detected');noiseBurst(.8,.1)}
+$('bGhost').onclick=ghost;$('bScare').onclick=()=>{closeP();horror()};$('bDelay').onclick=()=>{closeP();buzz(40);S.forceSnd=true;ac();setTimeout(horror,rnd(5000,12000))};$('bWhisper').onclick=whisper;
+$('bCold').onclick=()=>{S.cold=1;log('Cold spot');buzz(60)};
+$('bBlack').onclick=()=>{S.dark=1;log('Lights flicker');closeP();const f=$('flash');f.style.background='#000';f.animate([{opacity:1},{opacity:0},{opacity:1},{opacity:0},{opacity:1},{opacity:0}],{duration:1400});setTimeout(()=>f.style.background='#fff',1500);buzz([50,50,50,50,200])};
+$('bClear').onclick=()=>{S.mode='manual';$('mode').value='manual';S.lvl=S.lvl_=S.target=0;$('lvl').value=0;set('lvlV',0);log('Room cleared')};
+$('mode').onchange=e=>S.mode=e.target.value;
+$('lvl').oninput=e=>{S.mode='manual';$('mode').value='manual';S.lvl_=+e.target.value;set('lvlV',e.target.value)};
+$('type').onchange=e=>S.type=e.target.value;$('vib').onchange=e=>S.vib=e.target.checked;$('snd2').onchange=e=>S.snd=e.target.checked;
+function openP(){$('panel').classList.add('open')}function closeP(){$('panel').classList.remove('open')}
+$('bClose').onclick=closeP;$('panel').onclick=e=>{if(e.target.id==='panel')closeP()};
+function multi(el,n,fn){let c=0,tm;el.addEventListener('click',()=>{c++;clearTimeout(tm);tm=setTimeout(()=>c=0,1500);if(c>=n){c=0;fn()}})}
+multi($('sec'),5,openP);multi($('title'),7,openP);addEventListener('keydown',e=>{if(e.key==='g')openP()});
+
+/* ---------- HORROR SCARE ---------- */
+const hc2=$('horror'),hz=hc2.getContext('2d');let horrorOn=false;
+function screamSound(){if(!S.snd&&!S.forceSnd)return;try{const a=ac();a.resume&&a.resume();const now=a.currentTime,g=a.createGain();g.gain.setValueAtTime(.9,now);g.gain.exponentialRampToValueAtTime(.001,now+2.6);g.connect(a.destination);
+  [1,1.5,2.01,2.99].forEach((m,i)=>{const o=a.createOscillator();o.type=i%2?'sawtooth':'square';o.frequency.setValueAtTime(500*m,now);o.frequency.exponentialRampToValueAtTime(1500*m,now+.35);o.frequency.exponentialRampToValueAtTime(700*m,now+2.4);
+    const l=a.createOscillator(),lg=a.createGain();l.frequency.value=22;lg.gain.value=120*m;l.connect(lg);lg.connect(o.frequency);l.start(now);o.connect(g);o.start(now);o.stop(now+2.6);l.stop(now+2.6)});
+  const b=a.createBuffer(1,a.sampleRate*2.6,a.sampleRate),x=b.getChannelData(0);for(let i=0;i<x.length;i++)x[i]=(Math.random()*2-1)*(1-i/x.length);const ns=a.createBufferSource();ns.buffer=b;ns.connect(g);ns.start(now)}catch(e){}}
+function face(t,k){const W=hc2.width,H=hc2.height,cx=W/2,cy=H*.48,sc=Math.min(W,H)/520*k;
+  hz.save();hz.translate(cx+rnd(-8,8)*k,cy+rnd(-8,8)*k);hz.scale(sc,sc);
+  // hair
+  hz.strokeStyle='#050505';hz.lineWidth=7;for(let i=0;i<40;i++){const x=rnd(-190,190);hz.beginPath();hz.moveTo(x,-200);hz.bezierCurveTo(x+rnd(-60,60),-100,x+rnd(-80,80),100,x+rnd(-60,60),380);hz.stroke()}
+  // head
+  const hg=hz.createRadialGradient(0,-20,20,0,0,260);hg.addColorStop(0,'#e8e8dc');hg.addColorStop(1,'#6e6e62');hz.fillStyle=hg;hz.beginPath();hz.ellipse(0,0,150,205,0,0,7);hz.fill();
+  // sunken cheeks
+  hz.fillStyle='#00000033';hz.beginPath();hz.ellipse(-80,90,40,70,.3,0,7);hz.ellipse(80,90,40,70,-.3,0,7);hz.fill();
+  // eyes
+  hz.fillStyle='#000';hz.beginPath();hz.ellipse(-55,-45,38,52,-.15,0,7);hz.ellipse(55,-45,38,52,.15,0,7);hz.fill();
+  hz.fillStyle='#fff';const px=Math.sin(t*9)*6;hz.beginPath();hz.arc(-55+px,-40,5,0,7);hz.arc(55+px,-40,5,0,7);hz.fill();
+  hz.fillStyle='#f22';hz.beginPath();hz.arc(-55+px,-40,2.5,0,7);hz.arc(55+px,-40,2.5,0,7);hz.fill();
+  // nose
+  hz.fillStyle='#0008';hz.beginPath();hz.ellipse(0,40,9,16,0,0,7);hz.fill();
+  // mouth - screaming
+  const mo=70+Math.abs(Math.sin(t*14))*40;hz.fillStyle='#000';hz.beginPath();hz.ellipse(0,115,48,mo,0,0,7);hz.fill();
+  hz.fillStyle='#d8d8c8';for(let i=-3;i<=3;i++){hz.beginPath();hz.moveTo(i*13-6,70);hz.lineTo(i*13+6,70);hz.lineTo(i*13,92);hz.fill()}
+  hz.fillStyle='#600';hz.beginPath();hz.ellipse(0,150,24,20,0,0,7);hz.fill();
+  hz.restore()}
+function horror(){if(horrorOn)return;horrorOn=true;hc2.width=innerWidth;hc2.height=innerHeight;hc2.style.display='block';
+  screamSound();buzz([400,60,400,60,700,60,900]);S.lvl=S.lvl_=S.target=100;log('☠ HORROR TRIGGERED');
+  const t0=performance.now();let last=0;
+  (function f(){const t=(performance.now()-t0)/1000;if(t>3.2){hc2.style.display='none';horrorOn=false;return}
+    const W=hc2.width,H=hc2.height;hz.fillStyle=Math.random()<.15?'#300':'#000';hz.fillRect(0,0,W,H);
+    const k=t<.15?.5+t*5:1.15+t*.2;                    // fast zoom-in then creep
+    if(Math.random()<.9)face(t,k);
+    // red vein vignette + static
+    const rg=hz.createRadialGradient(W/2,H/2,H*.2,W/2,H/2,H*.8);rg.addColorStop(0,'#0000');rg.addColorStop(1,'#a00a');hz.fillStyle=rg;hz.fillRect(0,0,W,H);
+    for(let i=0;i<260;i++){hz.fillStyle=`rgba(255,255,255,${Math.random()*.5})`;hz.fillRect(Math.random()*W,Math.random()*H,rnd(1,60),1)}
+    if(Math.random()<.12){hz.fillStyle='#fff';hz.fillRect(0,0,W,H)}                // flash frames
+    if(t>2.4){hz.fillStyle=`rgba(0,0,0,${(t-2.4)/.8})`;hz.fillRect(0,0,W,H)}       // fade to black
+    requestAnimationFrame(f)})()}
+hc2.addEventListener('click',()=>{});
+// bottom-left secret: 1 tap = instant, 2 taps = hidden delay timer
+(function(){let c=0,tm;$('secL').addEventListener('click',()=>{ac().resume&&ac().resume();S.forceSnd=true;c++;clearTimeout(tm);tm=setTimeout(()=>{if(c===1){horror()}else{buzz(40);setTimeout(horror,rnd(5000,12000))}c=0},350)})})();
+</script>
+</body>
+</html>
